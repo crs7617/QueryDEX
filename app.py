@@ -5,11 +5,10 @@ import seaborn as sns
 from transformers import pipeline
 import streamlit as st
 
-# Data Reading Function
+
 def read_dataset(file_path):
     return pd.read_csv(file_path)
 
-# Statistical Analysis Functions
 def chi_square_test(data, col1, col2):
     contingency_table = pd.crosstab(data[col1], data[col2])
     chi2, p, dof, ex = chi2_contingency(contingency_table)
@@ -23,7 +22,6 @@ def pearson_corr(data, col1, col2):
     corr, p_val = pearsonr(data[col1], data[col2])
     return corr, p_val
 
-# Summary and Visualization Functions
 def data_summary(data):
     return data.describe()
 
@@ -37,10 +35,8 @@ def plot_scatter(data, col1, col2):
     plt.title(f'Scatter plot of {col1} vs {col2}')
     plt.show()
 
-# NLP Model
 nlp_model = pipeline("question-answering", model="distilbert-base-uncased", tokenizer="distilbert-base-uncased")
 
-# Query Processing Function
 def process_query(query, data):
     query = query.lower()
 
