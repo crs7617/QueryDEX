@@ -1,0 +1,9 @@
+pandas
+numpy
+scipy
+scikit-learn 
+matplotlib
+seaborn
+streamlit
+transformers 
+fais-cpu
