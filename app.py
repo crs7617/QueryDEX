@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from transformers import pipeline
 import streamlit as st
-
+from fuzzywuzzy import process
 
 def read_dataset(file_path):
     return pd.read_csv(file_path)
@@ -26,50 +26,66 @@ def data_summary(data):
     return data.describe()
 
 def plot_histogram(data, column):
-    sns.histplot(data[column])
-    plt.title(f'Histogram of {column}')
-    plt.show()
+    fig, ax = plt.subplots()
+    sns.histplot(data[column], ax=ax)
+    ax.set_title(f'Histogram of {column}')
+    return fig
 
 def plot_scatter(data, col1, col2):
-    sns.scatterplot(x=data[col1], y=data[col2])
-    plt.title(f'Scatter plot of {col1} vs {col2}')
-    plt.show()
+    fig, ax = plt.subplots()
+    sns.scatterplot(x=data[col1], y=data[col2], ax=ax)
+    ax.set_title(f'Scatter plot of {col1} vs {col2}')
+    return fig
 
 nlp_model = pipeline("question-answering", model="distilbert-base-uncased", tokenizer="distilbert-base-uncased")
 
-def process_query(query, data):
-    query = query.lower()
+def extract_columns(query, data):
+    words = query.lower().split()
+    possible_columns = [word for word in words if word in data.columns]
+    if len(possible_columns) >= 2:
+        return possible_columns[:2]
+    return None
 
-    if "chi-square" in query:
-        columns = query.split("between")[-1].strip().split("and")
-        chi2, p = chi_square_test(data, columns[0].strip(), columns[1].strip())
-        return f"Chi-square test result: chi2={chi2}, p={p}"
-    
-    elif "t-test" in query:
-        columns = query.split("between")[-1].strip().split("and")
-        t_stat, p_val = t_test(data, columns[0].strip(), columns[1].strip())
-        return f"T-test result: t_stat={t_stat}, p_val={p_val}"
-    
-    elif "correlation" in query or "pearson" in query:
-        columns = query.split("between")[-1].strip().split("and")
-        corr, p_val = pearson_corr(data, columns[0].strip(), columns[1].strip())
-        return f"Pearson correlation result: corr={corr}, p_val={p_val}"
-    
-    elif "summary" in query:
-        return data_summary(data).to_dict()
-    
-    elif "histogram" in query:
-        column = query.split("of")[-1].strip()
-        plot_histogram(data, column)
-        return f"Histogram for {column} plotted."
-    
-    elif "scatter plot" in query:
-        columns = query.split("between")[-1].strip().split("and")
-        plot_scatter(data, columns[0].strip(), columns[1].strip())
-        return f"Scatter plot for {columns[0]} and {columns[1]} plotted."
-    
-    else:
-        return "Query not recognized. Please try again with a different query."
+def process_query(query, data):
+    try:
+        # Use NLP model to understand the query
+        result = nlp_model(question=query, context=', '.join(data.columns))
+        
+        # Fuzzy match for test types
+        test_types = ["chi-square", "t-test", "correlation", "pearson", "summary", "histogram", "scatter plot"]
+        best_match, score = process.extractOne(result['answer'], test_types)
+        
+        if score < 60:  # Adjust this threshold as needed
+            return "I'm not sure what analysis you want to perform. Could you please rephrase your query?"
+
+        columns = extract_columns(query, data)
+
+        if best_match in ["chi-square", "t-test", "correlation", "pearson"] and columns:
+            col1, col2 = columns
+            if best_match == "chi-square":
+                chi2, p = chi_square_test(data, col1, col2)
+                return f"Chi-square test result between {col1} and {col2}: chi2={chi2}, p={p}"
+            elif best_match == "t-test":
+                t_stat, p_val = t_test(data, col1, col2)
+                return f"T-test result between {col1} and {col2}: t_stat={t_stat}, p_val={p_val}"
+            elif best_match in ["correlation", "pearson"]:
+                corr, p_val = pearson_corr(data, col1, col2)
+                return f"Pearson correlation result between {col1} and {col2}: corr={corr}, p_val={p_val}"
+        elif best_match == "summary":
+            return data_summary(data).to_dict()
+        elif best_match == "histogram" and columns:
+            column = columns[0]
+            fig = plot_histogram(data, column)
+            return fig, f"Histogram for {column} plotted."
+        elif best_match == "scatter plot" and columns:
+            col1, col2 = columns
+            fig = plot_scatter(data, col1, col2)
+            return fig, f"Scatter plot for {col1} and {col2} plotted."
+        else:
+            return "I couldn't understand the columns to analyze. Please specify the column names clearly."
+
+    except Exception as e:
+        return f"An error occurred: {str(e)}"
 
 # Streamlit App
 st.title('DataWhiz')
@@ -87,15 +103,12 @@ if uploaded_file is not None:
     
     if user_query:
         result = process_query(user_query, data)
-        st.write(result)
+        if isinstance(result, tuple):
+            fig, message = result
+            st.pyplot(fig)
+            st.write(message)
+        else:
+            st.write(result)
 
-        if "summary" in user_query:
-            st.write(data_summary(data))
-        
-        if "histogram" in user_query:
-            column = user_query.split("of")[-1].strip()
-            st.pyplot(plot_histogram(data, column))
-        
-        if "scatter plot" in user_query:
-            columns = user_query.split("between")[-1].strip().split("and")
-            st.pyplot(plot_scatter(data, columns[0].strip(), columns[1].strip()))
+        if isinstance(result, dict):
+            st.write(pd.DataFrame(result))
