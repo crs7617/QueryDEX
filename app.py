@@ -5,6 +5,8 @@ import seaborn as sns
 from transformers import pipeline
 import streamlit as st
 from fuzzywuzzy import process
+from transformers import AutoModelForQuestionAnswering, AutoTokenizer, pipeline
+
 
 def read_dataset(file_path):
     return pd.read_csv(file_path)
@@ -37,7 +39,8 @@ def plot_scatter(data, col1, col2):
     ax.set_title(f'Scatter plot of {col1} vs {col2}')
     return fig
 
-nlp_model = pipeline("question-answering", model="distilbert-base-uncased", tokenizer="distilbert-base-uncased")
+model_name = "bert-large-uncased-whole-word-masking-finetuned-squad" 
+nlp_model = pipeline("question-answering", model=model_name, tokenizer=model_name)
 
 def extract_columns(query, data):
     words = query.lower().split()
