@@ -7,3 +7,4 @@ seaborn
 streamlit
 transformers 
 fais-cpu
+fuzzywuzzy

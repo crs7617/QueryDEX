@@ -2,69 +2,51 @@ import pandas as pd
 from scipy.stats import chi2_contingency, ttest_ind, pearsonr
 import matplotlib.pyplot as plt
 import seaborn as sns
-from transformers import pipeline
 import streamlit as st
 from fuzzywuzzy import process
-from transformers import AutoModelForQuestionAnswering, AutoTokenizer, pipeline
-
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
 
 def read_dataset(file_path):
     return pd.read_csv(file_path)
 
-def chi_square_test(data, col1, col2):
-    contingency_table = pd.crosstab(data[col1], data[col2])
-    chi2, p, dof, ex = chi2_contingency(contingency_table)
-    return chi2, p
+# ... (keep all the other functions as they are) ...
 
-def t_test(data, col1, col2):
-    t_stat, p_val = ttest_ind(data[col1], data[col2], nan_policy='omit')
-    return t_stat, p_val
+# Load the Mistral 7B model and tokenizer
+model_name = "mistralai/Mistral-7B-v0.1"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float16, device_map="auto")
 
-def pearson_corr(data, col1, col2):
-    corr, p_val = pearsonr(data[col1], data[col2])
-    return corr, p_val
-
-def data_summary(data):
-    return data.describe()
-
-def plot_histogram(data, column):
-    fig, ax = plt.subplots()
-    sns.histplot(data[column], ax=ax)
-    ax.set_title(f'Histogram of {column}')
-    return fig
-
-def plot_scatter(data, col1, col2):
-    fig, ax = plt.subplots()
-    sns.scatterplot(x=data[col1], y=data[col2], ax=ax)
-    ax.set_title(f'Scatter plot of {col1} vs {col2}')
-    return fig
-
-model_name = "bert-large-uncased-whole-word-masking-finetuned-squad" 
-nlp_model = pipeline("question-answering", model=model_name, tokenizer=model_name)
+def generate_response(prompt):
+    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    with torch.no_grad():
+        outputs = model.generate(**inputs, max_new_tokens=100, temperature=0.7)
+    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return response.strip()
 
 def extract_columns(query, data):
     words = query.lower().split()
     possible_columns = [word for word in words if word in data.columns]
-    if len(possible_columns) >= 2:
-        return possible_columns[:2]
-    return None
+    return possible_columns
 
 def process_query(query, data):
     try:
-        # Use NLP model to understand the query
-        result = nlp_model(question=query, context=', '.join(data.columns))
+        # Use Mistral 7B to understand the query
+        context = ', '.join(data.columns)
+        prompt = f"Given the following columns in a dataset: {context}\n\nUser query: {query}\n\nWhat type of analysis should be performed and which columns should be used?"
+        result = generate_response(prompt)
         
         # Fuzzy match for test types
         test_types = ["chi-square", "t-test", "correlation", "pearson", "summary", "histogram", "scatter plot"]
-        best_match, score = process.extractOne(result['answer'], test_types)
+        best_match, score = process.extractOne(result, test_types)
         
         if score < 60:  # Adjust this threshold as needed
             return "I'm not sure what analysis you want to perform. Could you please rephrase your query?"
 
         columns = extract_columns(query, data)
 
-        if best_match in ["chi-square", "t-test", "correlation", "pearson"] and columns:
-            col1, col2 = columns
+        if best_match in ["chi-square", "t-test", "correlation", "pearson"] and len(columns) >= 2:
+            col1, col2 = columns[:2]
             if best_match == "chi-square":
                 chi2, p = chi_square_test(data, col1, col2)
                 return f"Chi-square test result between {col1} and {col2}: chi2={chi2}, p={p}"
@@ -76,12 +58,12 @@ def process_query(query, data):
                 return f"Pearson correlation result between {col1} and {col2}: corr={corr}, p_val={p_val}"
         elif best_match == "summary":
             return data_summary(data).to_dict()
-        elif best_match == "histogram" and columns:
+        elif best_match == "histogram" and len(columns) >= 1:
             column = columns[0]
             fig = plot_histogram(data, column)
             return fig, f"Histogram for {column} plotted."
-        elif best_match == "scatter plot" and columns:
-            col1, col2 = columns
+        elif best_match == "scatter plot" and len(columns) >= 2:
+            col1, col2 = columns[:2]
             fig = plot_scatter(data, col1, col2)
             return fig, f"Scatter plot for {col1} and {col2} plotted."
         else:
