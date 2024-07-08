@@ -4,49 +4,73 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
 from fuzzywuzzy import process
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import torch
+import google.generativeai as genai
+
+# Configure the Gemini API
+genai.configure(api_key='AIzaSyBirAbeBRI9lUmD5mF8i5ZOGSHDQS9f3fg')
+
+# Initialize the Gemini model
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 def read_dataset(file_path):
     return pd.read_csv(file_path)
 
-# ... (keep all the other functions as they are) ...
-
-# Load the Mistral 7B model and tokenizer
-model_name = "mistralai/Mistral-7B-v0.1"
-tokenizer = AutoTokenizer.from_pretrained(model_name)
-model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.float16, device_map="auto")
-
-def generate_response(prompt):
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-    with torch.no_grad():
-        outputs = model.generate(**inputs, max_new_tokens=100, temperature=0.7)
-    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    return response.strip()
-
 def extract_columns(query, data):
     words = query.lower().split()
-    possible_columns = [word for word in words if word in data.columns]
-    return possible_columns
+    possible_columns = [col for col in data.columns if col.lower() in words]
+    if len(possible_columns) >= 2:
+        return possible_columns[:2]
+    elif len(possible_columns) == 1:
+        return possible_columns
+    return None
+
+def chi_square_test(data, col1, col2):
+    contingency_table = pd.crosstab(data[col1], data[col2])
+    chi2, p, _, _ = chi2_contingency(contingency_table)
+    return chi2, p
+
+def t_test(data, col1, col2):
+    t_stat, p_val = ttest_ind(data[col1], data[col2])
+    return t_stat, p_val
+
+def pearson_corr(data, col1, col2):
+    corr, p_val = pearsonr(data[col1], data[col2])
+    return corr, p_val
+
+def data_summary(data):
+    return data.describe()
+
+def plot_histogram(data, column):
+    actual_column = next(col for col in data.columns if col.lower() == column.lower())
+    fig, ax = plt.subplots()
+    sns.histplot(data[actual_column], kde=True, ax=ax)
+    return fig
+
+def plot_scatter(data, col1, col2):
+    fig, ax = plt.subplots()
+    sns.scatterplot(x=data[col1], y=data[col2], ax=ax)
+    return fig
 
 def process_query(query, data):
     try:
-        # Use Mistral 7B to understand the query
-        context = ', '.join(data.columns)
-        prompt = f"Given the following columns in a dataset: {context}\n\nUser query: {query}\n\nWhat type of analysis should be performed and which columns should be used?"
-        result = generate_response(prompt)
+        prompt = f"Given the following columns in a dataset: {', '.join(data.columns)}, " \
+                 f"what type of analysis is being requested in this query: '{query}'? " \
+                 f"Possible analysis types are: chi-square test, t-test, correlation, pearson correlation, " \
+                 f"summary statistics, histogram, or scatter plot. Only return the analysis type."
         
-        # Fuzzy match for test types
+        response = model.generate_content(prompt)
+        result = response.text.strip().lower()
+
         test_types = ["chi-square", "t-test", "correlation", "pearson", "summary", "histogram", "scatter plot"]
         best_match, score = process.extractOne(result, test_types)
         
-        if score < 60:  # Adjust this threshold as needed
+        if score < 60:
             return "I'm not sure what analysis you want to perform. Could you please rephrase your query?"
 
         columns = extract_columns(query, data)
 
-        if best_match in ["chi-square", "t-test", "correlation", "pearson"] and len(columns) >= 2:
-            col1, col2 = columns[:2]
+        if best_match in ["chi-square", "t-test", "correlation", "pearson"] and len(columns) == 2:
+            col1, col2 = columns
             if best_match == "chi-square":
                 chi2, p = chi_square_test(data, col1, col2)
                 return f"Chi-square test result between {col1} and {col2}: chi2={chi2}, p={p}"
@@ -57,13 +81,13 @@ def process_query(query, data):
                 corr, p_val = pearson_corr(data, col1, col2)
                 return f"Pearson correlation result between {col1} and {col2}: corr={corr}, p_val={p_val}"
         elif best_match == "summary":
-            return data_summary(data).to_dict()
-        elif best_match == "histogram" and len(columns) >= 1:
+            return data_summary(data)
+        elif best_match == "histogram" and columns:
             column = columns[0]
             fig = plot_histogram(data, column)
             return fig, f"Histogram for {column} plotted."
-        elif best_match == "scatter plot" and len(columns) >= 2:
-            col1, col2 = columns[:2]
+        elif best_match == "scatter plot" and len(columns) == 2:
+            col1, col2 = columns
             fig = plot_scatter(data, col1, col2)
             return fig, f"Scatter plot for {col1} and {col2} plotted."
         else:
@@ -73,7 +97,7 @@ def process_query(query, data):
         return f"An error occurred: {str(e)}"
 
 # Streamlit App
-st.title('DataWhiz')
+st.title('queryDex')
 
 st.header('Upload Dataset')
 uploaded_file = st.file_uploader("Choose a file", type=["csv", "xlsx"])
@@ -92,8 +116,7 @@ if uploaded_file is not None:
             fig, message = result
             st.pyplot(fig)
             st.write(message)
+        elif isinstance(result, pd.DataFrame):
+            st.write(result)
         else:
             st.write(result)
-
-        if isinstance(result, dict):
-            st.write(pd.DataFrame(result))
