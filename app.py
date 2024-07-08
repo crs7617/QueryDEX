@@ -1,13 +1,22 @@
 import pandas as pd
+import numpy as np
 from scipy.stats import chi2_contingency, ttest_ind, pearsonr
 import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit as st
 from fuzzywuzzy import process
 import google.generativeai as genai
+from dotenv import load_dotenv
+import os
+from sklearn.feature_selection import SelectKBest, f_classif, mutual_info_classif
+from sklearn.preprocessing import LabelEncoder
+
+# Load the environment variables
+load_dotenv()
+api_key = os.getenv('GEMINI_API_KEY')
 
 # Configure the Gemini API
-genai.configure(api_key='AIzaSyBirAbeBRI9lUmD5mF8i5ZOGSHDQS9f3fg')
+genai.configure(api_key=api_key)
 
 # Initialize the Gemini model
 model = genai.GenerativeModel('gemini-1.5-flash')
@@ -62,17 +71,42 @@ def plot_scatter(data, col1, col2):
     sns.scatterplot(x=data[actual_col1], y=data[actual_col2], ax=ax)
     return fig
 
+def differentiate_columns(data):
+    categorical = data.select_dtypes(include=['object', 'category']).columns
+    continuous = data.select_dtypes(include=['int64', 'float64']).columns
+    return categorical, continuous
+
+def feature_selection(data, target_column, k=5):
+    X = data.drop(columns=[target_column])
+    y = data[target_column]
+    
+    categorical, continuous = differentiate_columns(X)
+    
+    # Encode categorical variables
+    le = LabelEncoder()
+    for col in categorical:
+        X[col] = le.fit_transform(X[col])
+    
+    # Select K best features
+    selector = SelectKBest(score_func=f_classif, k=k)
+    X_new = selector.fit_transform(X, y)
+    
+    selected_features = X.columns[selector.get_support()].tolist()
+    
+    return selected_features
+
 def process_query(query, data):
     try:
         prompt = f"Given the following columns in a dataset: {', '.join(data.columns)}, " \
                  f"what type of analysis is being requested in this query: '{query}'? " \
                  f"Possible analysis types are: chi-square test, t-test, correlation, pearson correlation, " \
-                 f"summary statistics, histogram, or scatter plot. Only return the analysis type."
+                 f"summary statistics, histogram, scatter plot, feature selection, or column differentiation. " \
+                 f"Only return the analysis type."
         
         response = model.generate_content(prompt)
         result = response.text.strip().lower()
 
-        test_types = ["chi-square", "t-test", "correlation", "pearson", "summary", "histogram", "scatter plot"]
+        test_types = ["chi-square", "t-test", "correlation", "pearson", "summary", "histogram", "scatter plot", "feature selection", "column differentiation"]
         best_match, score = process.extractOne(result, test_types)
         
         if score < 60:
@@ -101,6 +135,16 @@ def process_query(query, data):
             col1, col2 = columns
             fig = plot_scatter(data, col1, col2)
             return fig, f"Scatter plot for {col1} and {col2} plotted."
+        elif best_match == "feature selection":
+            if len(columns) == 1:
+                target_column = columns[0]
+                selected_features = feature_selection(data, target_column)
+                return f"Top 5 features selected for target {target_column}: {', '.join(selected_features)}"
+            else:
+                return "Please specify a target column for feature selection."
+        elif best_match == "column differentiation":
+            categorical, continuous = differentiate_columns(data)
+            return f"Categorical columns: {', '.join(categorical)}\nContinuous columns: {', '.join(continuous)}"
         else:
             return "I couldn't understand the columns to analyze. Please specify the column names clearly."
 
