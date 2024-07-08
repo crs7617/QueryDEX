@@ -73,6 +73,13 @@ queryDex is an interactive data analysis tool that allows users to explore and a
 4. Depending on the analysis type, the app performs the appropriate statistical test or generates the requested visualization.
 5. Results are displayed directly in the Streamlit interface.
 
+
+
+
+https://github.com/crs7617/QueryDEX/assets/115174268/332a533f-d5fd-4d9e-83f6-f467cfdc7b48
+
+
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
