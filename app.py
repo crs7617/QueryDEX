@@ -24,31 +24,42 @@ def extract_columns(query, data):
         return possible_columns
     return None
 
+def get_actual_column(data, column):
+    return next(col for col in data.columns if col.lower() == column.lower())
+
 def chi_square_test(data, col1, col2):
-    contingency_table = pd.crosstab(data[col1], data[col2])
+    actual_col1 = get_actual_column(data, col1)
+    actual_col2 = get_actual_column(data, col2)
+    contingency_table = pd.crosstab(data[actual_col1], data[actual_col2])
     chi2, p, _, _ = chi2_contingency(contingency_table)
     return chi2, p
 
 def t_test(data, col1, col2):
-    t_stat, p_val = ttest_ind(data[col1], data[col2])
+    actual_col1 = get_actual_column(data, col1)
+    actual_col2 = get_actual_column(data, col2)
+    t_stat, p_val = ttest_ind(data[actual_col1], data[actual_col2])
     return t_stat, p_val
 
 def pearson_corr(data, col1, col2):
-    corr, p_val = pearsonr(data[col1], data[col2])
+    actual_col1 = get_actual_column(data, col1)
+    actual_col2 = get_actual_column(data, col2)
+    corr, p_val = pearsonr(data[actual_col1], data[actual_col2])
     return corr, p_val
 
 def data_summary(data):
     return data.describe()
 
 def plot_histogram(data, column):
-    actual_column = next(col for col in data.columns if col.lower() == column.lower())
+    actual_column = get_actual_column(data, column)
     fig, ax = plt.subplots()
     sns.histplot(data[actual_column], kde=True, ax=ax)
     return fig
 
 def plot_scatter(data, col1, col2):
+    actual_col1 = get_actual_column(data, col1)
+    actual_col2 = get_actual_column(data, col2)
     fig, ax = plt.subplots()
-    sns.scatterplot(x=data[col1], y=data[col2], ax=ax)
+    sns.scatterplot(x=data[actual_col1], y=data[actual_col2], ax=ax)
     return fig
 
 def process_query(query, data):
