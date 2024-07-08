@@ -1,71 +1,90 @@
-queryDex
+# queryDex
+
 queryDex is an interactive data analysis tool that allows users to explore and analyze datasets using natural language queries. It leverages the power of Streamlit for the user interface and Google's Generative AI to interpret user queries and perform appropriate statistical analyses.
-Features
 
-Upload CSV or Excel datasets
-Perform various statistical analyses:
+## Features
 
-Chi-square test
-T-test
-Pearson correlation
-Summary statistics
+- **Upload CSV or Excel datasets**
+- **Perform various statistical analyses:**
+  - Chi-square test
+  - T-test
+  - Pearson correlation
+  - Summary statistics
+  - And more
 
+- **Visualize data with:**
+  - Histograms
+  - Scatter plots
+  - Box plots
+  - Line charts
 
-Visualize data with:
+- **Natural language query processing**
+- **Interactive web interface**
 
-Histograms
-Scatter plots
+## Installation
 
+1. **Clone this repository:**
 
-Natural language query processing
-Interactive web interface
+    ```sh
+    git clone https://github.com/yourusername/queryDex.git
+    cd queryDex
+    ```
 
-Installation
+2. **Install the required dependencies:**
 
-Clone this repository:
-Copygit clone https://github.com/yourusername/queryDex.git
-cd queryDex
+    ```sh
+    pip install -r requirements.txt
+    ```
 
-Install the required dependencies:
-Copypip install -r requirements.txt
+3. **Set up your environment variables:**
 
-Set up your environment variables:
-Create a .env file in the root directory and add your Google Gemini API key:
-CopyGEMINI_API_KEY=your_api_key_here
+    Create a `.env` file in the root directory and add your Google Generative AI API key:
 
+    ```sh
+    GEMINI_API_KEY=your_api_key_here
+    ```
 
-Usage
+## Usage
 
-Run the Streamlit app:
-Copystreamlit run app.py
+1. **Run the Streamlit app:**
 
-Open your web browser and navigate to the provided local URL (usually http://localhost:8501).
-Upload your CSV or Excel dataset using the file uploader.
-Enter your query in natural language. For example:
+    ```sh
+    streamlit run app.py
+    ```
 
-"Show me a histogram of age"
-"Is there a correlation between height and weight?"
-"Perform a t-test on salary between male and female employees"
+2. **Open your web browser and navigate to the provided local URL (usually `http://localhost:8501`).**
 
+3. **Upload your CSV or Excel dataset using the file uploader.**
 
-View the results of your query, including statistical test results or visualizations.
+4. **Enter your query in natural language. For example:**
+    - "Show me a histogram of age"
+    - "Is there a correlation between height and weight?"
+    - "Perform a t-test on salary between male and female employees"
+    - "Plot a box plot of income by region"
+    - "Display a line chart of sales over time"
 
-How It Works
+5. **View the results of your query, including statistical test results or visualizations.**
 
-The app uses Streamlit for the user interface, allowing for easy data upload and query input.
-User queries are processed using Google's Generative AI to determine the type of analysis requested.
-The app extracts relevant column names from the query and matches them to the dataset.
-Depending on the analysis type, the app performs the appropriate statistical test or generates the requested visualization.
-Results are displayed directly in the Streamlit interface.
+## How It Works
 
-Contributing
+1. The app uses Streamlit for the user interface, allowing for easy data upload and query input.
+2. User queries are processed using Google's Generative AI to determine the type of analysis requested.
+3. The app extracts relevant column names from the query and matches them to the dataset.
+4. Depending on the analysis type, the app performs the appropriate statistical test or generates the requested visualization.
+5. Results are displayed directly in the Streamlit interface.
+
+## Contributing
+
 Contributions are welcome! Please feel free to submit a Pull Request.
-License
-This project is licensed under the MIT License - see the LICENSE file for details.
-Acknowledgments
 
-Streamlit for the web app framework
-Google Generative AI for natural language processing
-pandas for data manipulation
-scipy for statistical computations
-matplotlib and seaborn for data visualization
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- Streamlit for the web app framework
+- Google Generative AI for natural language processing
+- pandas for data manipulation
+- scipy for statistical computations
+- matplotlib and seaborn for data visualization
